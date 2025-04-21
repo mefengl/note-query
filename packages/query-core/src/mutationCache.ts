@@ -10,23 +10,57 @@ import type { MutationFilters } from './utils'
 
 // TYPES
 
+/**
+ * MutationCacheConfig 定义了变更缓存的配置选项
+ */
 interface MutationCacheConfig {
+  /** 
+   * 变更操作失败时的回调
+   * @param error - 错误信息
+   * @param variables - 变更操作的输入参数
+   * @param context - 上下文信息，可用于回滚
+   * @param mutation - 变更操作实例
+   */
   onError?: (
     error: DefaultError,
     variables: unknown,
     context: unknown,
     mutation: Mutation<unknown, unknown, unknown>,
   ) => Promise<unknown> | unknown
+
+  /** 
+   * 变更操作成功时的回调
+   * @param data - 服务器返回的数据
+   * @param variables - 变更操作的输入参数
+   * @param context - 上下文信息
+   * @param mutation - 变更操作实例
+   */
   onSuccess?: (
     data: unknown,
     variables: unknown,
     context: unknown,
     mutation: Mutation<unknown, unknown, unknown>,
   ) => Promise<unknown> | unknown
+
+  /** 
+   * 变更操作执行前的回调
+   * 常用于实现乐观更新
+   * @param variables - 变更操作的输入参数
+   * @param mutation - 变更操作实例
+   */
   onMutate?: (
     variables: unknown,
     mutation: Mutation<unknown, unknown, unknown>,
   ) => Promise<unknown> | unknown
+
+  /** 
+   * 变更操作完成时的回调（无论成功失败）
+   * @param data - 成功时的数据
+   * @param error - 失败时的错误
+   * @param variables - 变更操作的输入参数
+   * @param context - 上下文信息
+   * @param mutation - 变更操作实例
+   */
   onSettled?: (
     data: unknown | undefined,
     error: DefaultError | null,
@@ -60,7 +94,7 @@ interface NotifyEventMutationObserverRemoved extends NotifyEvent {
 interface NotifyEventMutationObserverOptionsUpdated extends NotifyEvent {
   type: 'observerOptionsUpdated'
   mutation?: Mutation<any, any, any, any>
-  observer: MutationObserver<any, any, any, any>
+  observer: MutationObserver<any, any, any>
 }
 
 interface NotifyEventMutationUpdated extends NotifyEvent {
@@ -81,6 +115,52 @@ type MutationCacheListener = (event: MutationCacheNotifyEvent) => void
 
 // CLASS
 
+/**
+ * MutationCache 是数据变更操作的缓存管理器
+ * 主要负责处理创建、更新、删除等写操作的状态和结果缓存
+ * 
+ * 核心特性：
+ * 
+ * 1. 作用域管理（Scope Management）
+ *    - 通过作用域控制并发变更操作
+ *    - 确保同一作用域内的变更按序执行
+ *    - 防止并发冲突和竞态条件
+ * 
+ * 2. 状态追踪
+ *    - 跟踪每个变更操作的状态：pending/success/error
+ *    - 维护变更操作的执行顺序
+ *    - 支持暂停和恢复操作
+ * 
+ * 3. 乐观更新支持
+ *    - 允许在服务器响应前更新UI
+ *    - 提供回滚机制处理失败情况
+ *    - 维护乐观更新的状态
+ * 
+ * 使用示例：
+ * ```typescript
+ * // 1. 基本变更操作
+ * const mutation = mutationCache.build(
+ *   queryClient,
+ *   {
+ *     mutationFn: (newTodo) => axios.post('/todos', newTodo),
+ *     onSuccess: (data) => {
+ *       // 更新查询缓存
+ *       queryClient.setQueryData(['todos'], (old) => [...old, data])
+ *     }
+ *   }
+ * )
+ * 
+ * // 2. 使用作用域控制并发
+ * const mutation = mutationCache.build(
+ *   queryClient,
+ *   {
+ *     mutationKey: ['addTodo'],
+ *     scope: 'todos', // 同一作用域内的mutation会串行执行
+ *     mutationFn: (newTodo) => axios.post('/todos', newTodo)
+ *   }
+ * )
+ * ```
+ */
 export class MutationCache extends Subscribable<MutationCacheListener> {
   #mutations: Set<Mutation<any, any, any, any>>
   #scopes: Map<string, Array<Mutation<any, any, any, any>>>

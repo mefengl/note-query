@@ -30,32 +30,56 @@ import type { Retryer } from './retryer'
 
 // TYPES
 
+/**
+ * QueryConfig 定义了查询的配置选项
+ */
 interface QueryConfig<
   TQueryFnData,
   TError,
   TData,
   TQueryKey extends QueryKey = QueryKey,
 > {
+  /** 查询客户端实例 */
   client: QueryClient
+  /** 查询的唯一键 */
   queryKey: TQueryKey
+  /** 查询的哈希值，用于缓存索引 */
   queryHash: string
+  /** 查询特定选项 */
   options?: QueryOptions<TQueryFnData, TError, TData, TQueryKey>
+  /** 默认选项 */
   defaultOptions?: QueryOptions<TQueryFnData, TError, TData, TQueryKey>
+  /** 初始状态 */
   state?: QueryState<TData, TError>
 }
 
+/**
+ * QueryState 定义了查询的状态
+ */
 export interface QueryState<TData = unknown, TError = DefaultError> {
+  /** 查询返回的数据 */
   data: TData | undefined
+  /** 数据更新计数器 */
   dataUpdateCount: number
+  /** 数据最后更新时间 */
   dataUpdatedAt: number
+  /** 错误信息 */
   error: TError | null
+  /** 错误更新计数器 */
   errorUpdateCount: number
+  /** 错误最后更新时间 */
   errorUpdatedAt: number
+  /** 获取失败次数 */
   fetchFailureCount: number
+  /** 获取失败原因 */
   fetchFailureReason: TError | null
+  /** 获取元数据 */
   fetchMeta: FetchMeta | null
+  /** 数据是否已失效 */
   isInvalidated: boolean
+  /** 查询状态 */
   status: QueryStatus
+  /** 获取状态 */
   fetchStatus: FetchStatus
 }
 
@@ -155,6 +179,56 @@ export interface SetStateOptions {
 
 // CLASS
 
+/**
+ * Query 类是 TanStack Query 的查询核心实现
+ * 每个数据查询都会创建一个 Query 实例
+ * 
+ * 核心特性：
+ * 
+ * 1. 状态管理
+ *    - status: 查询状态 (loading/error/success)
+ *    - fetchStatus: 获取状态 (idle/fetching/paused)
+ *    - data: 查询结果数据
+ *    - error: 错误信息
+ * 
+ * 2. 缓存控制
+ *    - staleTime: 数据过期时间
+ *    - cacheTime: 缓存保留时间
+ *    - isInvalidated: 缓存是否已失效
+ * 
+ * 3. 重试机制
+ *    - retry: 失败重试次数
+ *    - retryDelay: 重试间隔
+ *    - retryHandler: 自定义重试逻辑
+ * 
+ * 4. 数据更新
+ *    - 乐观更新
+ *    - 数据回滚
+ *    - 选择性更新
+ * 
+ * 使用示例：
+ * ```typescript
+ * // 1. 创建基本查询
+ * const query = new Query({
+ *   queryKey: ['todos'],
+ *   queryFn: () => fetch('/todos'),
+ *   staleTime: 5 * 60 * 1000 // 5分钟后数据过期
+ * })
+ * 
+ * // 2. 处理查询生命周期
+ * query.fetch().then(
+ *   data => console.log('数据获取成功:', data),
+ *   error => console.log('数据获取失败:', error)
+ * )
+ * 
+ * // 3. 观察查询状态
+ * const unsubscribe = query.subscribe(state => {
+ *   if (state.isFetching) {
+ *     console.log('正在获取数据...')
+ *   }
+ * })
+ * ```
+ */
 export class Query<
   TQueryFnData = unknown,
   TError = DefaultError,

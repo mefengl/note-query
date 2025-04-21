@@ -46,11 +46,19 @@ import type { MutationFilters, QueryFilters, Updater } from './utils'
 
 // TYPES
 
+/**
+ * QueryDefaults 接口定义了查询的默认选项
+ * 可以为特定的 queryKey 设置默认配置
+ */
 interface QueryDefaults {
   queryKey: QueryKey
   defaultOptions: OmitKeyof<QueryOptions<any, any, any>, 'queryKey'>
 }
 
+/**
+ * MutationDefaults 接口定义了数据变更操作的默认选项
+ * 可以为特定的 mutationKey 设置默认配置
+ */
 interface MutationDefaults {
   mutationKey: MutationKey
   defaultOptions: MutationOptions<any, any, any, any>
@@ -58,6 +66,62 @@ interface MutationDefaults {
 
 // CLASS
 
+/**
+ * QueryClient 是 TanStack Query 的核心类
+ * 就像一个数据管理中心，负责处理所有的数据获取、缓存和更新操作
+ * 
+ * 核心概念解析：
+ * 
+ * 1. 数据获取和缓存
+ *    - QueryCache: 存储所有查询的数据和元数据
+ *    - MutationCache: 存储所有数据变更操作的状态
+ * 
+ * 2. 生命周期管理
+ *    - mount(): 当组件挂载时调用
+ *    - unmount(): 当组件卸载时调用
+ *    这两个方法管理订阅系统，包括：
+ *    - 页面焦点监听（用于自动重新获取数据）
+ *    - 网络状态监听（用于处理离线/在线切换）
+ * 
+ * 3. 状态跟踪
+ *    - isFetching(): 跟踪正在获取数据的查询数量
+ *    - isMutating(): 跟踪正在进行的数据变更操作数量
+ * 
+ * 4. 数据操作
+ *    - getQueryData(): 直接从缓存获取数据
+ *    - setQueryData(): 手动更新缓存中的数据
+ *    - ensureQueryData(): 确保数据存在，必要时获取新数据
+ * 
+ * 代码示例：
+ * ```typescript
+ * // 1. 创建客户端实例
+ * const queryClient = new QueryClient({
+ *   defaultOptions: {
+ *     queries: {
+ *       // 自动重试失败的请求
+ *       retry: 3,
+ *       // 数据5分钟后过期
+ *       staleTime: 5 * 60 * 1000,
+ *     }
+ *   }
+ * })
+ * 
+ * // 2. 获取数据
+ * const data = await queryClient.fetchQuery({
+ *   queryKey: ['todos'],
+ *   queryFn: () => fetch('/todos').then(r => r.json())
+ * })
+ * 
+ * // 3. 更新缓存数据
+ * queryClient.setQueryData(['todos'], (old) => [...old, newTodo])
+ * 
+ * // 4. 使用乐观更新
+ * queryClient.setQueryData(['todos'], (old) => {
+ *   const newTodos = [...old, newTodo]
+ *   return newTodos
+ * })
+ * ```
+ */
 export class QueryClient {
   #queryCache: QueryCache
   #mutationCache: MutationCache
